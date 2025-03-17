@@ -85,7 +85,7 @@ const Translation = () => {
 			const customApiKey = localStorage.getItem("customApiKey");
 
 			const response = await fetch(
-				"http://localhost:5000/api/translate",
+				"https://ytscriptwriter.railway.app/api/translate",
 				{
 					method: "POST",
 					headers: {
