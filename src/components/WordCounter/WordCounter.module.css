@@ -1,0 +1,22 @@
+.counter {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: 0.8rem;
+  color: var(--text-color-light);
+  margin-top: var(--spacing-xs);
+}
+
+.count {
+  white-space: nowrap;
+}
+
+.divider {
+  opacity: 0.5;
+}
+
+.exceeded {
+  color: #dc3545;
+  font-weight: 500;
+}
+
