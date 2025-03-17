@@ -83,7 +83,7 @@ const ScriptGenerator = () => {
 			const customApiKey = localStorage.getItem("customApiKey");
 
 			const response = await fetch(
-				"https://ytscriptwriter.railway.app/api/generate-script",
+				"https://backend-scriptwriter.railway.app/api/generate-script",
 				{
 					method: "POST",
 					headers: {
