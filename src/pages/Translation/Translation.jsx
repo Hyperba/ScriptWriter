@@ -72,62 +72,68 @@ const Translation = () => {
 	}, [additionalNotes]);
 
 	const translateText = async () => {
-		if (!inputText.trim()) return;
+	if (!inputText.trim()) return;
 
-		setShowConfirmModal(false);
-		setIsLoading(true);
-		setError("");
-		setOutputText("");
-		setDisplayedOutput(""); // Reset before new translation
+	setShowConfirmModal(false);
+	setIsLoading(true);
+	setError("");
+	setOutputText("");
+	setDisplayedOutput(""); // Reset before new translation
 
-		try {
-			const customPrompt = localStorage.getItem("translationPrompt");
-			const customApiKey = localStorage.getItem("customApiKey");
+	try {
+		const customPrompt = localStorage.getItem("translationPrompt");
+		const customApiKey = localStorage.getItem("customApiKey");
 
-			const response = await fetch(
-				"backend-scriptwriter-production.up.railway.app/api/translate",
-				{
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						...(customApiKey && { "x-api-key": customApiKey }),
-					},
-					body: JSON.stringify({
-						content: inputText,
-						sourceLanguage:
-							sourceLanguage === "Auto-detect"
-								? ""
-								: sourceLanguage,
-						targetLanguage: "English",
-						additionalNotes: additionalNotes,
-						toEnglish: true,
-						customPrompt: customPrompt,
-					}),
-				}
-			);
-
-			const data = await response.json();
-			console.log("API Response:", data);
-
-			if (!response.ok) {
-				throw new Error(data.error || "Failed to translate text");
+		const response = await fetch(
+			"backend-scriptwriter-production.up.railway.app/api/translate",
+			{
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					...(customApiKey && { "x-api-key": customApiKey }),
+				},
+				body: JSON.stringify({
+					content: inputText,
+					sourceLanguage:
+						sourceLanguage === "Auto-detect"
+							? ""
+							: sourceLanguage,
+					targetLanguage: "English",
+					additionalNotes: additionalNotes,
+					toEnglish: true,
+					customPrompt: customPrompt,
+				}),
 			}
+		);
 
-			setOutputText(data.translatedText);
-			setShowConfetti(true);
-
-			setTimeout(() => {
-				if (resultRef.current) {
-					resultRef.current.scrollIntoView({ behavior: "smooth" });
-				}
-			}, 100);
-		} catch (error) {
-			console.error("Translation error:", error);
-			setError("Error occurred during translation. Please try again.");
-		} finally {
-			setIsLoading(false);
+		// Check if the response body is empty
+		const responseText = await response.text();
+		if (!responseText) {
+			throw new Error("Empty response from server");
 		}
-	};
+
+		const data = JSON.parse(responseText);
+		console.log("API Response:", data);
+
+		if (!response.ok) {
+			throw new Error(data.error || "Failed to translate text");
+		}
+
+		setOutputText(data.translatedText);
+		setShowConfetti(true);
+
+		setTimeout(() => {
+			if (resultRef.current) {
+				resultRef.current.scrollIntoView({ behavior: "smooth" });
+			}
+		}, 100);
+	} catch (error) {
+		console.error("Translation error:", error);
+		setError("Error occurred during translation. Please try again.");
+	} finally {
+		setIsLoading(false);
+	}
+};
 
 	const copyToClipboard = () => {
 		navigator.clipboard.writeText(outputText);
