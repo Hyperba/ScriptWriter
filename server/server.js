@@ -22,25 +22,39 @@ const allowedOrigins = [
     "http://localhost:5173", 
 ];
 
+app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+    next();
+});
+
 app.use(
     cors({
-        origin: (origin, callback) => {
+        origin: function (origin, callback) {
             if (!origin || allowedOrigins.includes(origin)) {
                 callback(null, true);
             } else {
+                console.log("Blocked by CORS:", origin);
                 callback(new Error("Not allowed by CORS"));
             }
         },
         methods: ["GET", "POST", "OPTIONS"],
         allowedHeaders: ["Content-Type", "x-api-key"],
+        credentials: true,  // Allow credentials if needed
     })
 );
 
-app.options("*", cors());
+// Ensure preflight requests are handled properly
+app.options("*", (req, res) => {
+    res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
+    res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.sendStatus(200);
+});
+
 app.use(express.json());
 
 const limiter = rateLimit({
-    windowMs: 10 * 60 * 1000, 
+    windowMs: 10 * 60 * 1000,
     max: 100,
     message: "Too many requests, please try again later.",
 });
