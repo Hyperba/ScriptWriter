@@ -59,7 +59,7 @@ const ScriptImprover = () => {
 			const customApiKey = localStorage.getItem("customApiKey");
 
 			const response = await fetch(
-				"https://backend-scriptwriter-production.up.railway.app/api/improve-script",
+				"http://localhost:5000/api/improve-script",
 				{
 					method: "POST",
 					headers: {
