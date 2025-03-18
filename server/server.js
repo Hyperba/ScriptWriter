@@ -3,7 +3,6 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { Groq } from "groq-sdk";
 import rateLimit from "express-rate-limit";
-import axios from "axios";
 
 dotenv.config();
 
@@ -21,11 +20,19 @@ const groq = new Groq({ apiKey: GROQ_API_KEY });
 // CORS configuration
 app.use(
 	cors({
-		origin: "https://yt-scriptwriter.netlify.app", // Allow frontend
-		methods: ["GET", "POST"],
+		origin: (origin, callback) => {
+			if (origin === "https://yt-scriptwriter.netlify.app" || !origin) {
+				callback(null, true);
+			} else {
+				callback(new Error("Not allowed by CORS"));
+			}
+		},
+		methods: ["GET", "POST", "OPTIONS"],
 		allowedHeaders: ["Content-Type", "x-api-key"],
 	})
 );
+// Handle OPTIONS requests (preflight)
+app.options("*", cors()); // Allow preflight across all routes
 
 app.use(express.json());
 
