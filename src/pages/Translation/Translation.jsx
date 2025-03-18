@@ -85,7 +85,7 @@ const Translation = () => {
 			const customApiKey = localStorage.getItem("customApiKey");
 
 			const response = await fetch(
-				"https://backend-scriptwriter.railway.app/api/translate",
+				"backend-scriptwriter-production.up.railway.app/api/translate",
 				{
 					method: "POST",
 					headers: {
