@@ -11,171 +11,128 @@ const PORT = process.env.PORT || 3000;
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 
 if (!GROQ_API_KEY) {
-	console.error("Missing GROQ_API_KEY in environment variables.");
-	process.exit(1);
+    console.error("Missing GROQ_API_KEY in environment variables.");
+    process.exit(1);
 }
 
 const groq = new Groq({ apiKey: GROQ_API_KEY });
 
-// CORS configuration (Allows frontend + local dev)
 const allowedOrigins = [
-	"https://yt-scriptwriter.netlify.app",
-	"http://localhost:5173", // Added for Vite development
+    "https://yt-scriptwriter.netlify.app",
+    "http://localhost:5173", 
 ];
 
 app.use(
-	cors({
-		origin: (origin, callback) => {
-			if (!origin || allowedOrigins.includes(origin)) {
-				callback(null, true);
-			} else {
-				callback(new Error("Not allowed by CORS"));
-			}
-		},
-		methods: ["GET", "POST", "OPTIONS"],
-		allowedHeaders: ["Content-Type", "x-api-key"],
-	})
+    cors({
+        origin: (origin, callback) => {
+            if (!origin || allowedOrigins.includes(origin)) {
+                callback(null, true);
+            } else {
+                callback(new Error("Not allowed by CORS"));
+            }
+        },
+        methods: ["GET", "POST", "OPTIONS"],
+        allowedHeaders: ["Content-Type", "x-api-key"],
+    })
 );
 
-// Handle OPTIONS requests (preflight)
 app.options("*", cors());
-
 app.use(express.json());
 
-// Rate limiting to prevent abuse
 const limiter = rateLimit({
-	windowMs: 10 * 60 * 1000, // 10 minutes
-	max: 100,
-	message: "Too many requests, please try again later.",
+    windowMs: 10 * 60 * 1000, 
+    max: 100,
+    message: "Too many requests, please try again later.",
 });
 app.use(limiter);
 
-// Health check route
 app.get("/api/health", (req, res) => {
-	res.json({ status: "ok" });
+    res.json({ status: "ok" });
 });
 
-// Keep-alive route (useful if Railway auto-sleeps)
 app.get("/api/keep-alive", (req, res) => {
-	res.json({ message: "Server is active." });
-});
-
-app.post("/api/translate", async (req, res) => {
-	try {
-		const {
-			content,
-			sourceLanguage,
-			targetLanguage,
-			additionalNotes,
-			customPrompt,
-		} = req.body;
-
-		if (!content || content.trim() === "") {
-			return res.status(400).json({ error: "Missing content in request." });
-		}
-
-		const finalPrompt = customPrompt
-			.replace("{sourceLanguage}", sourceLanguage)
-			.replace("{additionalNotes}", additionalNotes)
-			.replace("{text}", content);
-
-		const model = "mixtral-8x7b-32768";
-
-		// Call Groq API
-		const chatCompletion = await groq.chat.completions.create({
-			model,
-			messages: [{ role: "user", content: finalPrompt }],
-			temperature: 0.7,
-			max_tokens: 8192,
-		});
-
-		const responseText = chatCompletion.choices[0]?.message?.content || "";
-		res.json({ translatedText: responseText });
-	} catch (error) {
-		console.error("Error calling Groq API:", error.message);
-		res.status(500).json({ error: "An error occurred. Please try again later." });
-	}
-});
-
-app.post("/api/improve-script", async (req, res) => {
-	try {
-		const { script, conditions, customPrompt } = req.body;
-
-		if (!script || script.trim() === "") {
-			return res.status(400).json({ error: "Missing script in request." });
-		}
-
-		const finalPrompt = customPrompt
-			? customPrompt.replace("{conditions}", conditions).replace("{script}", script)
-			: `Improve the following script based on these conditions: ${conditions}\n\n${script}`;
-
-		const model = "mixtral-8x7b-32768";
-
-		// Call Groq API
-		const chatCompletion = await groq.chat.completions.create({
-			model,
-			messages: [{ role: "user", content: finalPrompt }],
-			temperature: 0.7,
-			max_tokens: 8192,
-		});
-
-		const responseText = chatCompletion.choices[0]?.message?.content || "";
-		res.json({ improvedScript: responseText });
-	} catch (error) {
-		console.error("Error calling Groq API:", error.message);
-		res.status(500).json({ error: "An error occurred. Please try again later." });
-	}
+    res.json({ message: "Server is active." });
 });
 
 async function callGroqAPI(prompt, model) {
-	try {
-		const response = await groq.chat.completions.create({
-			model,
-			messages: [{ role: "user", content: prompt }],
-			temperature: 0.7,
-			max_tokens: 8192,
-		});
-
-		return response.choices[0]?.message?.content || "No script generated";
-	} catch (error) {
-		console.error("API call failed:", error.message);
-		throw new Error("Error calling the Groq API");
-	}
+    try {
+        const response = await groq.chat.completions.create({
+            model,
+            messages: [{ role: "user", content: prompt }],
+            temperature: 0.7,
+            max_tokens: 8192,
+        });
+        return response.choices[0]?.message?.content || "No response from AI";
+    } catch (error) {
+        console.error("Groq API error:", error.message);
+        throw new Error("Error calling Groq API");
+    }
 }
 
-// API route for generating the script
+app.post("/api/translate", async (req, res) => {
+    try {
+        const { content, sourceLanguage, targetLanguage, additionalNotes, customPrompt } = req.body;
+
+        if (!content || content.trim() === "") {
+            return res.status(400).json({ error: "Missing content in request." });
+        }
+
+        const finalPrompt = customPrompt
+            .replace("{sourceLanguage}", sourceLanguage)
+            .replace("{targetLanguage}", targetLanguage)
+            .replace("{additionalNotes}", additionalNotes)
+            .replace("{text}", content);
+
+        const translatedText = await callGroqAPI(finalPrompt, "mixtral-8x7b-32768");
+        res.json({ translatedText });
+    } catch (error) {
+        console.error("Translation error:", error.message);
+        res.status(500).json({ error: "An error occurred while translating." });
+    }
+});
+
+app.post("/api/improve-script", async (req, res) => {
+    try {
+        const { script, conditions, customPrompt } = req.body;
+
+        if (!script || script.trim() === "") {
+            return res.status(400).json({ error: "Missing script in request." });
+        }
+
+        const finalPrompt = customPrompt
+            ? customPrompt.replace("{conditions}", conditions).replace("{script}", script)
+            : `Improve the following script based on these conditions: ${conditions}\n\n${script}`;
+
+        const improvedScript = await callGroqAPI(finalPrompt, "mixtral-8x7b-32768");
+        res.json({ improvedScript });
+    } catch (error) {
+        console.error("Script improvement error:", error.message);
+        res.status(500).json({ error: "An error occurred while improving the script." });
+    }
+});
+
 app.post("/api/generate-script", async (req, res) => {
-	try {
-		const { dialog, plot, genre, customPrompt } = req.body;
+    try {
+        const { dialog, plot, genre, customPrompt } = req.body;
 
-		if (!dialog || !plot) {
-			return res.status(400).json({ error: "Dialog and plot are required" });
-		}
+        if (!dialog || !plot) {
+            return res.status(400).json({ error: "Dialog and plot are required." });
+        }
 
-		const promptVariables = { dialog, plot, genre: genre || "drama" };
+        const promptVariables = { dialog, plot, genre: genre || "drama" };
 
-		const prompt = customPrompt
-			? customPrompt.replace(/{(\w+)}/g, (match, variable) => promptVariables[variable] || match)
-			: `Generate a ${genre || "drama"} script based on the following dialog and plot:
+        const prompt = customPrompt
+            ? customPrompt.replace(/{(\w+)}/g, (match, variable) => promptVariables[variable] || match)
+            : `Generate a ${genre || "drama"} script based on the following dialog and plot:\n\nDialog:\n${dialog}\n\nPlot:\n${plot}\n\nPlease format it as a proper screenplay.`;
 
-Dialog:
-${dialog}
-
-Plot:
-${plot}
-
-Please format it as a proper screenplay.`;
-
-		// Call Groq API
-		const generatedScript = await callGroqAPI(prompt, "mixtral-8x7b-32768");
-
-		res.json({ generatedScript });
-	} catch (error) {
-		console.error("Script generation error:", error.message);
-		res.status(500).json({ error: "An error occurred while generating the script." });
-	}
+        const generatedScript = await callGroqAPI(prompt, "mixtral-8x7b-32768");
+        res.json({ generatedScript });
+    } catch (error) {
+        console.error("Script generation error:", error.message);
+        res.status(500).json({ error: "An error occurred while generating the script." });
+    }
 });
 
 app.listen(PORT, () => {
-	console.log(`Server running on port ${PORT}`);
+    console.log(`Server running on port ${PORT}`);
 });
